@@ -1,0 +1,53 @@
+# La tournée du facteur : toutes les 5 minutes, envoie les notifications de La Poste de Kenza.
+# Gratuit sur un dépôt public. Besoin d'un seul secret : FIREBASE_SERVICE_ACCOUNT (voir README).
+name: Tournée du facteur
+
+on:
+  schedule:
+    - cron: "2-57/5 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: facteur
+  cancel-in-progress: false
+
+jobs:
+  tournee:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: facteur/package-lock.json
+
+      - name: Préparer le facteur
+        working-directory: facteur
+        run: npm ci --omit=dev --no-audit --no-fund
+
+      - name: Distribuer le courrier
+        working-directory: facteur
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          AUTEUR: Sammy
+          DESTINATAIRE: Kenza
+        run: node index.js
+
+      # GitHub met en pause les tâches planifiées d'un dépôt sans activité depuis 60 jours.
+      # Une fois par mois et demi, le facteur laisse donc un petit mot pour rester en service.
+      - name: Rester en service
+        run: |
+          derniere=$(git log -1 --format=%ct)
+          jours=$(( ( $(date +%s) - derniere ) / 86400 ))
+          if [ "$jours" -ge 45 ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit --allow-empty -m "Le facteur est toujours en service"
+            git push
+          fi
