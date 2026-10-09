@@ -1,0 +1,64 @@
+rules_version = '2';
+
+// La Poste de Kenza : la boîte s'ouvre avec un lien secret, sans compte ni mot de passe.
+// Chaque lien contient une clé ; les clés sont rangées dans la collection "cles",
+// que l'app ne peut ni lire ni lister. Un téléphone qui présente une bonne clé
+// devient "membre" avec le rôle de cette clé (sammy ou kenza).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function membre() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/membres/$(request.auth.uid));
+    }
+    function role() {
+      return get(/databases/$(database)/documents/membres/$(request.auth.uid)).data.role;
+    }
+    function estSammy() { return membre() && role() == 'sammy'; }
+    function estKenza() { return membre() && role() == 'kenza'; }
+    function neChangeQue(champs) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(champs);
+    }
+    function cleValide(cle, r) {
+      return cle is string
+        && cle.matches('^[ks]_[0-9a-f]{32}$')
+        && exists(/databases/$(database)/documents/cles/$(cle))
+        && get(/databases/$(database)/documents/cles/$(cle)).data.role == r;
+    }
+
+    // Les clés secrètes : jamais lisibles ni modifiables depuis l'app.
+    match /cles/{cle} {
+      allow read, write: if false;
+    }
+
+    // Un téléphone devient membre en présentant la clé de son lien.
+    match /membres/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['role', 'cle', 'creeLe'])
+        && cleValide(request.resource.data.cle, request.resource.data.role);
+      allow update, delete: if false;
+    }
+
+    match /letters/{id} {
+      allow read: if estSammy() || estKenza();
+      allow create, delete: if estSammy();
+      allow update: if estSammy()
+        || (estKenza() && neChangeQue(['openedAt', 'hearted']));
+    }
+
+    match /questions/{id} {
+      allow read: if estSammy() || estKenza();
+      allow create, delete: if estSammy();
+      allow update: if estSammy()
+        || (estKenza() && resource.data.answer == null && neChangeQue(['answer', 'answeredAt']));
+    }
+
+    // Appareils qui reçoivent les notifications. Lus seulement par le facteur (GitHub Actions).
+    match /pushTokens/{jeton} {
+      allow create, update: if (estSammy() && request.resource.data.role == 'sammy')
+        || (estKenza() && request.resource.data.role == 'kenza');
+      allow delete: if estSammy() || estKenza();
+    }
+  }
+}

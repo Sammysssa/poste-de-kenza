@@ -1,0 +1,10 @@
+{
+  "name": "poste-de-kenza-facteur",
+  "private": true,
+  "description": "Tournée du facteur : envoie les notifications de La Poste de Kenza",
+  "main": "index.js",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "firebase-admin": "14.5.0"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "La Poste de Kenza",
+  "short_name": "Poste de Kenza",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#E3EAF3",
+  "theme_color": "#22306A",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "id": "./"
+}
